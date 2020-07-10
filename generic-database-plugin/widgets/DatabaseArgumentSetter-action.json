@@ -70,7 +70,7 @@
         {
           "widget-type": "text",
           "label": "Arguments column",
-          "name": "argumentsColumn"
+          "name": "argumentsColumns"
         }
       ]
     },

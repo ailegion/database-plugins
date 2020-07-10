@@ -31,7 +31,7 @@ public abstract class ArgumentSetterConfig extends ConnectionConfig {
   public static final String DATABASE_NAME = "databaseName";
   public static final String TABLE_NAME = "tableName";
   public static final String ARGUMENT_SELECTION_CONDITIONS = "argumentSelectionConditions";
-  public static final String ARGUMENTS_COLUMN = "argumentsColumn";
+  public static final String ARGUMENTS_COLUMNS = "argumentsColumns";
 
   @Name(ConnectionConfig.CONNECTION_STRING)
   @Description("JDBC connection string including database name.")
@@ -70,14 +70,14 @@ public abstract class ArgumentSetterConfig extends ConnectionConfig {
   @Macro
   String argumentSelectionConditions;
 
-  @Name(ARGUMENTS_COLUMN)
-  @Description("The name of the column that contains the\n"
-      + "arguments for this run. The value of this\n"
-      + "column in the row that satisfies the argument\n"
+  @Name(ARGUMENTS_COLUMNS)
+  @Description("Names of the columns that contain the\n"
+      + "arguments for this run. The values of this\n"
+      + "columns in the row that satisfies the argument\n"
       + "selection conditions determines the\n"
       + "arguments for the pipeline run")
   @Macro
-  String argumentsColumn;
+  String argumentsColumns;
 
   public String getDatabaseName() {
     return databaseName;
@@ -91,16 +91,19 @@ public abstract class ArgumentSetterConfig extends ConnectionConfig {
     return argumentSelectionConditions;
   }
 
-  public String getArgumentsColumn() {
-    return argumentsColumn;
+  public String getArgumentsColumns() {
+    return argumentsColumns;
   }
 
   public String getQuery() {
+    if (this.getArgumentSelectionConditions() == null) {
+      throw new IllegalArgumentException("Argument selection conditions is are empty.");
+    }
     String[] split = this.getArgumentSelectionConditions().split(";");
     String conditions = String.join(" AND ", split);
 
     return String
-        .format("SELECT %s FROM %s WHERE %s", this.getArgumentsColumn(), this.getTableName(),
+        .format("SELECT %s FROM %s WHERE %s", this.getArgumentsColumns(), this.getTableName(),
             conditions);
   }
 
@@ -116,15 +119,17 @@ public abstract class ArgumentSetterConfig extends ConnectionConfig {
     if (!containsMacro(TABLE_NAME) && Strings.isNullOrEmpty(this.getTableName())) {
       collector.addFailure("Invalid table", "Invalid table is specified");
     }
-    if (!containsMacro(ARGUMENTS_COLUMN) && Strings.isNullOrEmpty(this.getArgumentsColumn())) {
+    if (!containsMacro(ARGUMENTS_COLUMNS) && Strings.isNullOrEmpty(this.getArgumentsColumns())) {
       collector
-          .addFailure("Invalid argument column", "Argument column name must be specified");
+          .addFailure("Invalid arguments columns", "Arguments column names must be specified");
     }
     if (!containsMacro(ARGUMENT_SELECTION_CONDITIONS) && Strings
         .isNullOrEmpty(this.getArgumentSelectionConditions())) {
       collector
           .addFailure("Invalid conditions", "Filter conditions must be specified");
     }
+
+//    validate(collector);
     collector.getOrThrowException();
   }
 

@@ -22,6 +22,7 @@ import io.cdap.cdap.etl.api.StageConfigurer;
 import io.cdap.cdap.etl.api.action.Action;
 import io.cdap.cdap.etl.api.action.ActionContext;
 import io.cdap.cdap.etl.api.action.SettableArguments;
+import io.cdap.plugin.db.ConnectionConfig;
 import io.cdap.plugin.util.DBUtils;
 import io.cdap.plugin.util.DriverCleanup;
 import java.sql.Connection;
@@ -49,33 +50,77 @@ public class AbstractDBArgumentSetter extends Action {
     Class<? extends Driver> driverClass = context.loadPluginClass(JDBC_PLUGIN_ID);
     FailureCollector failureCollector = context.getFailureCollector();
     SettableArguments settableArguments = context.getArguments();
-    DriverCleanup driverCleanup = null;
-    try {
-      driverCleanup = DBUtils.ensureJDBCDriverIsAvailable(driverClass, config.getConnectionString(),
-          config.jdbcPluginName);
-      Properties connectionProperties = new Properties();
-      connectionProperties.putAll(config.getConnectionArguments());
-      try (Connection connection = DriverManager
-          .getConnection(config.getConnectionString(), connectionProperties)) {
-        try (Statement statement = connection.createStatement()) {
-          ResultSet resultSet = statement.executeQuery(config.getQuery());
-          setArguments(resultSet, failureCollector, settableArguments);
-        }
-      }
-    } finally {
-      if (driverCleanup != null) {
-        driverCleanup.destroy();
-      }
-    }
+    processArguments(driverClass, failureCollector, settableArguments);
   }
 
   @Override
   public void configurePipeline(PipelineConfigurer pipelineConfigurer)
       throws IllegalArgumentException {
     DBUtils.validateJDBCPluginPipeline(pipelineConfigurer, config, JDBC_PLUGIN_ID);
+    Class<? extends Driver> driverClass = DBUtils.getDriverClass(
+        pipelineConfigurer, config, ConnectionConfig.JDBC_PLUGIN_TYPE);
     StageConfigurer stageConfigurer = pipelineConfigurer.getStageConfigurer();
     FailureCollector collector = stageConfigurer.getFailureCollector();
     config.validate(collector);
+    try {
+      processArguments(driverClass, collector, null);
+    } catch (SQLException e) {
+      collector.addFailure("SQL error while executing query: " + e.getMessage(), null)
+          .withStacktrace(e.getStackTrace());
+    } catch (IllegalAccessException | InstantiationException e) {
+      collector.addFailure("Unable to instantiate JDBC driver: " + e.getMessage(), null)
+          .withStacktrace(e.getStackTrace());
+    } catch (Exception e) {
+      collector.addFailure(e.getMessage(), null).withStacktrace(e.getStackTrace());
+    }
+    config.validate(collector);
+  }
+
+  /**
+   * Creates connection to database. Reads row from database based on selection conditions and
+   * depending on whether settable arguments is provided or not set the argument from row columns.
+   *
+   * @param driverClass {@link Class<? extends Driver>}
+   * @param failureCollector {@link FailureCollector}
+   * @param settableArguments {@link SettableArguments}
+   * @throws SQLException is raised when there is sql related exception
+   * @throws IllegalAccessException is raised when there is access related exception
+   * @throws InstantiationException is raised when there is class/driver issue
+   */
+  private void processArguments(Class<? extends Driver> driverClass,
+      FailureCollector failureCollector, SettableArguments settableArguments)
+      throws SQLException, IllegalAccessException, InstantiationException {
+    DriverCleanup driverCleanup;
+
+    driverCleanup = DBUtils.ensureJDBCDriverIsAvailable(driverClass, config.getConnectionString(),
+        config.jdbcPluginName);
+    Properties connectionProperties = new Properties();
+    connectionProperties.putAll(config.getConnectionArguments());
+    try {
+      Connection connection = DriverManager
+          .getConnection(config.getConnectionString(), connectionProperties);
+      Statement statement = connection.createStatement();
+      ResultSet resultSet = statement.executeQuery(config.getQuery());
+      boolean hasRecord = resultSet.next();
+      if (!hasRecord) {
+        failureCollector.addFailure("Ne record found",
+            "No data is returned for the argument selection conditions");
+      }
+      if (settableArguments != null) {
+        setArguments(resultSet, failureCollector, settableArguments);
+      }
+      if (resultSet.next()) {
+        failureCollector
+            .addFailure("More than one record found",
+                "The argument selection conditions return multiple rows");
+      }
+
+      failureCollector.getOrThrowException();
+    } catch (SQLException e) {
+      throw new SQLException(e.getMessage(), e.getSQLState(), e.getErrorCode());
+    } finally {
+      driverCleanup.destroy();
+    }
   }
 
   /**
@@ -88,21 +133,9 @@ public class AbstractDBArgumentSetter extends Action {
    */
   private void setArguments(ResultSet resultSet, FailureCollector failureCollector,
       SettableArguments arguments) throws SQLException {
-
-    boolean hasRecord = resultSet.next();
-    if (!hasRecord) {
-      failureCollector.addFailure("Ne record found",
-          "No data is returned for the argument selection conditions");
-      failureCollector.getOrThrowException();
+    String[] columns = config.getArgumentsColumns().split(",");
+    for (String column : columns) {
+      arguments.set(column, resultSet.getString(column));
     }
-    arguments.set(config.getArgumentsColumn(), resultSet.getString(config.getArgumentsColumn()));
-
-    if (resultSet.next()) {
-      failureCollector
-          .addFailure("More than one record found",
-              "The argument selection conditions return multiple rows");
-    }
-
-    failureCollector.getOrThrowException();
   }
 }
