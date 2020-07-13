@@ -129,7 +129,6 @@ public abstract class ArgumentSetterConfig extends ConnectionConfig {
           .addFailure("Invalid conditions", "Filter conditions must be specified");
     }
 
-//    validate(collector);
     collector.getOrThrowException();
   }
 
