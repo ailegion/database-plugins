@@ -38,6 +38,16 @@ public abstract class ArgumentSetterConfig extends ConnectionConfig {
   @Macro
   public String connectionString;
 
+  @Name(ConnectionConfig.USER)
+  @Description("JDBC connection string including database name.")
+  @Macro
+  public String user;
+
+  @Name(ConnectionConfig.PASSWORD)
+  @Description("JDBC connection string including database name.")
+  @Macro
+  public String password;
+
 
   @Name(DATABASE_NAME)
   @Description("The name of the database which contains\n"
@@ -113,6 +123,15 @@ public abstract class ArgumentSetterConfig extends ConnectionConfig {
    * @param collector context failure collector {@link FailureCollector}
    */
   public void validate(FailureCollector collector) {
+    if (!containsMacro(CONNECTION_STRING) && Strings.isNullOrEmpty(this.connectionString)) {
+      collector.addFailure("Invalid connection string", "Connection string cannot be empty");
+    }
+    if (!containsMacro(ConnectionConfig.USER) && Strings.isNullOrEmpty(this.user)) {
+      collector.addFailure("Invalid username", "Username cannot be empty");
+    }
+    if (!containsMacro(ConnectionConfig.PASSWORD) && Strings.isNullOrEmpty(this.password)) {
+      collector.addFailure("Invalid password", "Password cannot be empty");
+    }
     if (!containsMacro(DATABASE_NAME) && Strings.isNullOrEmpty(this.getDatabaseName())) {
       collector.addFailure("Invalid database", "Invalid database is specified");
     }
