@@ -38,54 +38,43 @@ public abstract class ArgumentSetterConfig extends ConnectionConfig {
   @Macro
   public String connectionString;
 
-  @Name(ConnectionConfig.USER)
-  @Description("JDBC connection string including database name.")
-  @Macro
-  public String user;
-
-  @Name(ConnectionConfig.PASSWORD)
-  @Description("JDBC connection string including database name.")
-  @Macro
-  public String password;
-
-
   @Name(DATABASE_NAME)
   @Description("The name of the database which contains\n"
-      + "the configuration table")
+    + "the configuration table")
   @Macro
   String databaseName;
 
   @Name(TABLE_NAME)
   @Description("The name of the table in the database\n"
-      + "containing the configurations for the pipeline")
+    + "containing the configurations for the pipeline")
   @Macro
   String tableName;
 
   @Name(ARGUMENT_SELECTION_CONDITIONS)
   @Description("A set of conditions for identifying the\n"
-      + "arguments to run a pipeline. Users can\n"
-      + "specify multiple conditions in the format\n"
-      + "column1=<column1-value>;column2=<colum\n"
-      + "n2-value>. A particular use case for this\n"
-      + "would be feed=marketing AND\n"
-      + "date=20200427. The conditions specified\n"
-      + "should be logically ANDed to determine the\n"
-      + "arguments for a run. When the conditions are\n"
-      + "applied, the table should return exactly 1 row.\n"
-      + "If it doesn’t return any rows, or if it returns\n"
-      + "multiple rows, the pipeline should abort with\n"
-      + "appropriate errors. Typically, users should\n"
-      + "use macros in this field, so that they can\n"
-      + "specify the conditions at runtime.")
+    + "arguments to run a pipeline. Users can\n"
+    + "specify multiple conditions in the format\n"
+    + "column1=<column1-value>;column2=<colum\n"
+    + "n2-value>. A particular use case for this\n"
+    + "would be feed=marketing AND\n"
+    + "date=20200427. The conditions specified\n"
+    + "should be logically ANDed to determine the\n"
+    + "arguments for a run. When the conditions are\n"
+    + "applied, the table should return exactly 1 row.\n"
+    + "If it doesn’t return any rows, or if it returns\n"
+    + "multiple rows, the pipeline should abort with\n"
+    + "appropriate errors. Typically, users should\n"
+    + "use macros in this field, so that they can\n"
+    + "specify the conditions at runtime.")
   @Macro
   String argumentSelectionConditions;
 
   @Name(ARGUMENTS_COLUMNS)
   @Description("Names of the columns that contain the\n"
-      + "arguments for this run. The values of this\n"
-      + "columns in the row that satisfies the argument\n"
-      + "selection conditions determines the\n"
-      + "arguments for the pipeline run")
+    + "arguments for this run. The values of this\n"
+    + "columns in the row that satisfies the argument\n"
+    + "selection conditions determines the\n"
+    + "arguments for the pipeline run")
   @Macro
   String argumentsColumns;
 
@@ -107,14 +96,14 @@ public abstract class ArgumentSetterConfig extends ConnectionConfig {
 
   public String getQuery() {
     if (this.getArgumentSelectionConditions() == null) {
-      throw new IllegalArgumentException("Argument selection conditions is are empty.");
+      throw new IllegalArgumentException("Argument selection conditions are empty.");
     }
     String[] split = this.getArgumentSelectionConditions().split(";");
     String conditions = String.join(" AND ", split);
 
     return String
-        .format("SELECT %s FROM %s WHERE %s", this.getArgumentsColumns(), this.getTableName(),
-            conditions);
+      .format("SELECT %s FROM %s WHERE %s", this.getArgumentsColumns(), this.getTableName(),
+              conditions);
   }
 
   /**
@@ -124,30 +113,29 @@ public abstract class ArgumentSetterConfig extends ConnectionConfig {
    */
   public void validate(FailureCollector collector) {
     if (!containsMacro(CONNECTION_STRING) && Strings.isNullOrEmpty(this.connectionString)) {
-      collector.addFailure("Invalid connection string", "Connection string cannot be empty");
+      collector.addFailure("Invalid connection string.", "Connection string cannot be empty.");
     }
     if (!containsMacro(ConnectionConfig.USER) && Strings.isNullOrEmpty(this.user)) {
-      collector.addFailure("Invalid username", "Username cannot be empty");
+      collector.addFailure("Invalid username.", "Username cannot be empty.");
     }
     if (!containsMacro(ConnectionConfig.PASSWORD) && Strings.isNullOrEmpty(this.password)) {
-      collector.addFailure("Invalid password", "Password cannot be empty");
+      collector.addFailure("Invalid password.", "Password cannot be empty.");
     }
     if (!containsMacro(DATABASE_NAME) && Strings.isNullOrEmpty(this.getDatabaseName())) {
-      collector.addFailure("Invalid database", "Invalid database is specified");
+      collector.addFailure("Invalid database.", "Invalid database is specified.");
     }
     if (!containsMacro(TABLE_NAME) && Strings.isNullOrEmpty(this.getTableName())) {
-      collector.addFailure("Invalid table", "Invalid table is specified");
+      collector.addFailure("Invalid table.", "Invalid table is specified.");
     }
     if (!containsMacro(ARGUMENTS_COLUMNS) && Strings.isNullOrEmpty(this.getArgumentsColumns())) {
       collector
-          .addFailure("Invalid arguments columns", "Arguments column names must be specified");
+        .addFailure("Invalid arguments columns.", "Arguments column names must be specified.");
     }
     if (!containsMacro(ARGUMENT_SELECTION_CONDITIONS) && Strings
-        .isNullOrEmpty(this.getArgumentSelectionConditions())) {
+      .isNullOrEmpty(this.getArgumentSelectionConditions())) {
       collector
-          .addFailure("Invalid conditions", "Filter conditions must be specified");
+        .addFailure("Invalid conditions.", "Filter conditions must be specified.");
     }
-
     collector.getOrThrowException();
   }
 
